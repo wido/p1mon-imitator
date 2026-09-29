@@ -184,3 +184,102 @@ func TestReaderDropsOversizedTelegram(t *testing.T) {
 		t.Fatalf("expected the valid telegram after the oversized one, got %v", err)
 	}
 }
+
+// threePhaseBody is a DSMR 5 telegram from a 3-phase meter with solar panels:
+// every per-phase field carries a distinct value so a swapped OBIS code
+// cannot go unnoticed.
+const threePhaseBody = "/Ene5\\T210-D ESMR5.0\r\n\r\n" +
+	"1-3:0.2.8(50)\r\n" +
+	"0-0:1.0.0(240612133000S)\r\n" +
+	"0-0:96.1.1(4530303534303037353936373139323139)\r\n" +
+	"1-0:1.8.1(010245.117*kWh)\r\n" +
+	"1-0:1.8.2(009873.402*kWh)\r\n" +
+	"1-0:2.8.1(003011.008*kWh)\r\n" +
+	"1-0:2.8.2(007520.655*kWh)\r\n" +
+	"0-0:96.14.0(0002)\r\n" +
+	"1-0:1.7.0(00.000*kW)\r\n" +
+	"1-0:2.7.0(02.145*kW)\r\n" +
+	"0-0:96.7.21(00012)\r\n" +
+	"0-0:96.7.9(00003)\r\n" +
+	"1-0:99.97.0(0)(0-0:96.7.19)\r\n" +
+	"1-0:32.32.0(00002)\r\n" +
+	"1-0:52.32.0(00001)\r\n" +
+	"1-0:72.32.0(00003)\r\n" +
+	"1-0:32.36.0(00000)\r\n" +
+	"1-0:52.36.0(00000)\r\n" +
+	"1-0:72.36.0(00000)\r\n" +
+	"0-0:96.13.0()\r\n" +
+	"1-0:32.7.0(231.4*V)\r\n" +
+	"1-0:52.7.0(234.8*V)\r\n" +
+	"1-0:72.7.0(229.9*V)\r\n" +
+	"1-0:31.7.0(002*A)\r\n" +
+	"1-0:51.7.0(005*A)\r\n" +
+	"1-0:71.7.0(003*A)\r\n" +
+	"1-0:21.7.0(00.112*kW)\r\n" +
+	"1-0:41.7.0(00.000*kW)\r\n" +
+	"1-0:61.7.0(00.087*kW)\r\n" +
+	"1-0:22.7.0(00.000*kW)\r\n" +
+	"1-0:42.7.0(01.230*kW)\r\n" +
+	"1-0:62.7.0(01.114*kW)\r\n"
+
+// singlePhaseBody is a DSMR 5 telegram from a 1-phase meter: no L2/L3 objects at all.
+const singlePhaseBody = "/XMX5LGBBFG1009325446\r\n\r\n" +
+	"1-3:0.2.8(50)\r\n" +
+	"0-0:1.0.0(240612133000S)\r\n" +
+	"1-0:1.8.1(001234.567*kWh)\r\n" +
+	"1-0:1.8.2(000987.654*kWh)\r\n" +
+	"1-0:2.8.1(000000.000*kWh)\r\n" +
+	"1-0:2.8.2(000000.000*kWh)\r\n" +
+	"0-0:96.14.0(0001)\r\n" +
+	"1-0:1.7.0(00.421*kW)\r\n" +
+	"1-0:2.7.0(00.000*kW)\r\n" +
+	"1-0:32.7.0(228.7*V)\r\n" +
+	"1-0:31.7.0(002*A)\r\n" +
+	"1-0:21.7.0(00.421*kW)\r\n" +
+	"1-0:22.7.0(00.000*kW)\r\n"
+
+func TestParseThreePhase(t *testing.T) {
+	tg, err := Parse(WithCRC(threePhaseBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Telegram{
+		Identification:         "Ene5\\T210-D ESMR5.0",
+		Version:                "50",
+		Timestamp:              tg.Timestamp,
+		Tariff:                 2,
+		EnergyDeliveredTariff1: 10245.117,
+		EnergyDeliveredTariff2: 9873.402,
+		EnergyReturnedTariff1:  3011.008,
+		EnergyReturnedTariff2:  7520.655,
+		PowerDelivered:         0,
+		PowerReturned:          2.145,
+		VoltageL1:              231.4, VoltageL2: 234.8, VoltageL3: 229.9,
+		CurrentL1: 2, CurrentL2: 5, CurrentL3: 3,
+		PowerDeliveredL1: 0.112, PowerDeliveredL2: 0, PowerDeliveredL3: 0.087,
+		PowerReturnedL1: 0, PowerReturnedL2: 1.23, PowerReturnedL3: 1.114,
+	}
+	if tg != want {
+		t.Fatalf("telegram mismatch\n got %+v\nwant %+v", tg, want)
+	}
+}
+
+func TestParseSinglePhaseLeavesL2L3Zero(t *testing.T) {
+	tg, err := Parse(WithCRC(singlePhaseBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tg.VoltageL1 != 228.7 || tg.CurrentL1 != 2 || tg.PowerDeliveredL1 != 0.421 || tg.Tariff != 1 {
+		t.Fatalf("L1 values wrong: %+v", tg)
+	}
+	for name, v := range map[string]float64{
+		"VoltageL2": tg.VoltageL2, "VoltageL3": tg.VoltageL3,
+		"CurrentL2": tg.CurrentL2, "CurrentL3": tg.CurrentL3,
+		"PowerDeliveredL2": tg.PowerDeliveredL2, "PowerDeliveredL3": tg.PowerDeliveredL3,
+		"PowerReturnedL2": tg.PowerReturnedL2, "PowerReturnedL3": tg.PowerReturnedL3,
+	} {
+		if v != 0 {
+			t.Errorf("%s = %v, want 0 on a single-phase meter", name, v)
+		}
+	}
+}

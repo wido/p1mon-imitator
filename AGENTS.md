@@ -29,7 +29,7 @@ into `main.version` (shown by `-version`). Keep builds static: check with `file`
 says "statically linked".
 
 Passing a regular file as `-device` replays its telegrams in a loop (1/s). `testdata/dsmr5-kaifa.txt`
-holds CRC-valid DSMR 5 telegrams. To regenerate such a file, build the body and append `!` plus the
+holds CRC-valid DSMR 5 telegrams and `testdata/dsmr5-3phase-solar.txt` a 3-phase meter feeding back solar power. To regenerate such a file, build the body and append `!` plus the
 uppercase hex of `dsmr.CRC16` over everything from `/` through `!` (see `WithCRC` in `dsmr_test.go`).
 
 End-to-end check with the real client: `pip install --target ./pylib p1monitor`, then call

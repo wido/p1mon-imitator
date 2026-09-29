@@ -130,3 +130,46 @@ func TestTariffLowIsD(t *testing.T) {
 		t.Fatalf("TARIFCODE = %v, want D", rows[0]["TARIFCODE"])
 	}
 }
+
+func TestRenderThreePhaseWithProduction(t *testing.T) {
+	tg := dsmr.Telegram{
+		Tariff:        2,
+		PowerReturned: 2.145,
+		VoltageL1:     231.4, VoltageL2: 234.8, VoltageL3: 229.9,
+		CurrentL1: 2, CurrentL2: 5, CurrentL3: 3,
+		PowerDeliveredL1: 0.112, PowerDeliveredL3: 0.087,
+		PowerReturnedL2: 1.23, PowerReturnedL3: 1.114,
+	}
+	s, err := Render(tg, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rows []struct {
+		Status   string `json:"STATUS"`
+		StatusID int    `json:"STATUS_ID"`
+	}
+	if err := json.Unmarshal(s.Status, &rows); err != nil {
+		t.Fatal(err)
+	}
+	got := map[int]string{}
+	for _, r := range rows {
+		got[r.StatusID] = r.Status
+	}
+	// Each STATUS_ID must carry its own phase's value; kW stays in kW.
+	want := map[int]string{
+		74: "0.112", 75: "0.0", 76: "0.087", // consumed L1..L3
+		77: "0.0", 78: "1.23", 79: "1.114", // produced L1..L3
+		100: "2.0", 101: "5.0", 102: "3.0", // amps L1..L3
+		103: "231.4", 104: "234.8", 105: "229.9", // volts L1..L3
+	}
+	for id, v := range want {
+		if got[id] != v {
+			t.Errorf("STATUS_ID %d = %q, want %q", id, got[id], v)
+		}
+	}
+	var sm []map[string]any
+	_ = json.Unmarshal(s.SmartMeter, &sm)
+	if sm[0]["PRODUCTION_W"] != 2145.0 || sm[0]["CONSUMPTION_W"] != 0.0 {
+		t.Errorf("totals: %v", sm[0])
+	}
+}
