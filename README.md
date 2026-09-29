@@ -1,51 +1,75 @@
-# P1Mon imitator
-This repository contains a single Go Binary which imitates the p1mon ( https://www.p1-monitor.nl/ ) API.
+# p1mon-imitator
 
-The single Go binary can be run on a Linux machine where the p1 port of a Dutch Smart Energy meter is connected via USB and present, often as /dev/ttyUSB0
+A small Go program that reads a Dutch smart meter over its P1 port and exposes
+the readings through the same HTTP API as [P1 Monitor](https://www.p1-monitor.nl/).
+This lets the [Home Assistant P1 Monitor integration](https://www.home-assistant.io/integrations/p1_monitor/)
+use any Linux box with a P1 cable, no Raspberry Pi image or database needed.
 
-This binary will read the incoming values from the p1mon, store them in memory and serve them via the API.
+Everything stays in memory. Nothing is written to disk.
 
-# AMD64 and ARCH64
-The binary can be compiled as AMD64 and ARCH64, where for the last one it can run on a Raspberry Pi or similar device.
+## What it does
+
+- Reads DSMR telegrams from the P1 cable (default `/dev/ttyUSB0`)
+- Detects the meter type by itself: DSMR 4/5 (115200 8N1) and DSMR 2/3 (9600 7E1)
+- Serves `/api/v1/smartmeter`, `/api/v1/status`, `/api/v1/configuration` and
+  `/api/v2/watermeter/day` the way Home Assistant expects them
+- Reconnects when the USB cable is unplugged or the meter goes quiet
+
+Only electricity is supported. Gas and water are not.
+
+## Build
+
+Requires Go 1.25 or newer.
 
 ```sh
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o p1mon-imitator-amd64 ./cmd/p1mon-imitator
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o p1mon-imitator-arm64 ./cmd/p1mon-imitator
+go build -o p1mon-imitator ./cmd/p1mon-imitator
 ```
 
-# Usage
+For a Raspberry Pi or other 64-bit ARM board:
 
-```
-p1mon-imitator [-device /dev/ttyUSB0] [-listen :8080] [-memory-limit-mib 32] [-verbose]
-               [-price-consumption-low 0.25] [-price-consumption-high 0.30]
-               [-price-production-low 0.10] [-price-production-high 0.10] [-price-gas 1.20]
+```sh
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o p1mon-imitator ./cmd/p1mon-imitator
 ```
 
-- `-device` defaults to `/dev/ttyUSB0`. The meter type is detected automatically: DSMR 4/5 meters
-  (115200 baud, 8N1, a telegram every 1 s or 10 s) and DSMR 2/3 meters (9600 baud, 7E1) both work.
-  If the device disappears or goes silent the port is reopened and re-detected.
-- `-listen` defaults to `:8080`, which listens on IPv4 and IPv6. Configure Home Assistant with the
-  host and port 8080.
-- The `-price-*` flags fill the tariff sensors Home Assistant reads from `/api/v1/configuration`.
-- Nothing is ever written to disk. Only the latest telegram is kept in memory and the Go runtime
-  is tuned for small devices (`-memory-limit-mib` sets a soft heap limit).
+## Run
 
-Pointing `-device` at a regular file replays the telegrams in it, which is handy for development
-without a meter: `go run ./cmd/p1mon-imitator -device testdata/dsmr5-kaifa.txt`.
+```sh
+./p1mon-imitator
+```
 
-# Electricity only
-The only supported functionality is electricity, water and gas are not supported at this moment.
+That reads `/dev/ttyUSB0` and listens on port 8080 (IPv4 and IPv6). Options:
 
-# Home Assistant
-The goal is that Home Assistant can read the API via this integrtion: https://www.home-assistant.io/integrations/p1_monitor/
+| Flag | Default | Meaning |
+|---|---|---|
+| `-device` | `/dev/ttyUSB0` | Serial device of the P1 port |
+| `-listen` | `:8080` | HTTP listen address |
+| `-price-consumption-low` / `-high` | `0` | Electricity price per kWh, low and high tariff |
+| `-price-production-low` / `-high` | `0` | Feed-in price per kWh |
+| `-price-gas` | `0` | Gas price per m³ (only reported, gas is not read) |
+| `-memory-limit-mib` | `32` | Soft heap limit for the Go runtime |
+| `-verbose` | off | Log every telegram and request |
 
-The integration should not notice that its an imitator that pretents to be p1mon, but is not.
+The user running it needs read access to the serial device, usually by being in
+the `dialout` group.
 
-The endpoints served are the ones the integration polls every 5 seconds:
+Then add the P1 Monitor integration in Home Assistant with the host of this
+machine and port 8080.
 
-| Endpoint | Content |
-|---|---|
-| `/api/v1/smartmeter` | current consumption/production in W, meter readings in kWh, tariff |
-| `/api/v1/status` | per-phase voltage, current and power |
-| `/api/v1/configuration` | tariff prices from the `-price-*` flags |
-| `/api/v2/watermeter/day` | always empty (no water meter) |
+To try it without a meter, point `-device` at a file with telegrams:
+
+```sh
+go run ./cmd/p1mon-imitator -device testdata/dsmr5-kaifa.txt
+```
+
+## Credits
+
+This project exists thanks to [P1 Monitor](https://www.p1-monitor.nl/) by
+ztatz, whose API this imitates, and to the
+[python-p1monitor](https://github.com/frenck/python-p1monitor) client by
+Franck Nijhof that Home Assistant uses to talk to it. The telegram format is
+described in the [DSMR P1 companion standard](https://www.netbeheernederland.nl/dossiers/slimme-meter-15/documenten)
+from Netbeheer Nederland.
+
+## License
+
+[MIT](LICENSE)
