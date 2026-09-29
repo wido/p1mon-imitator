@@ -22,13 +22,16 @@ import (
 	"github.com/wido/p1mon-imitator/internal/p1mon"
 )
 
+var version = "dev"
+
 func main() {
 	var (
-		device   = flag.String("device", "/dev/ttyUSB0", "serial device of the P1 port (a regular file is replayed in a loop)")
-		listen   = flag.String("listen", ":8080", "HTTP listen address; \":8080\" binds IPv4 and IPv6")
-		memLimit = flag.Int("memory-limit-mib", 32, "soft heap limit in MiB passed to the Go runtime (0 disables)")
-		verbose  = flag.Bool("verbose", false, "log every telegram and HTTP request")
-		prices   p1mon.Prices
+		showVersion = flag.Bool("version", false, "print version and exit")
+		device      = flag.String("device", "/dev/ttyUSB0", "serial device of the P1 port (a regular file is replayed in a loop)")
+		listen      = flag.String("listen", ":8080", "HTTP listen address; \":8080\" binds IPv4 and IPv6")
+		memLimit    = flag.Int("memory-limit-mib", 32, "soft heap limit in MiB passed to the Go runtime (0 disables)")
+		verbose     = flag.Bool("verbose", false, "log every telegram and HTTP request")
+		prices      p1mon.Prices
 	)
 	flag.Float64Var(&prices.ConsumptionLow, "price-consumption-low", 0, "electricity price, low tariff, euro/kWh")
 	flag.Float64Var(&prices.ConsumptionHigh, "price-consumption-high", 0, "electricity price, high tariff, euro/kWh")
@@ -36,6 +39,10 @@ func main() {
 	flag.Float64Var(&prices.ProductionHigh, "price-production-high", 0, "feed-in price, high tariff, euro/kWh")
 	flag.Float64Var(&prices.Gas, "price-gas", 0, "gas price, euro/m3 (reported only; gas is not read)")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println("p1mon-imitator", version)
+		return
+	}
 
 	level := slog.LevelInfo
 	if *verbose {

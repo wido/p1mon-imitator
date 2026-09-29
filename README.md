@@ -22,14 +22,13 @@ Only electricity is supported. Gas and water are not.
 Requires Go 1.25 or newer.
 
 ```sh
-go build -o p1mon-imitator ./cmd/p1mon-imitator
+make build        # binary for this machine
+make arm64        # p1mon-imitator-linux-arm64, for a Raspberry Pi or other 64-bit ARM board
+make all          # amd64 and arm64
 ```
 
-For a Raspberry Pi or other 64-bit ARM board:
-
-```sh
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o p1mon-imitator ./cmd/p1mon-imitator
-```
+Binaries are static (no libc) and stripped, so they can be copied to any Linux
+machine of the same architecture.
 
 ## Run
 
@@ -48,6 +47,7 @@ That reads `/dev/ttyUSB0` and listens on port 8080 (IPv4 and IPv6). Options:
 | `-price-gas` | `0` | Gas price per m³ (only reported, gas is not read) |
 | `-memory-limit-mib` | `32` | Soft heap limit for the Go runtime |
 | `-verbose` | off | Log every telegram and request |
+| `-version` | | Print the version and exit |
 
 The user running it needs read access to the serial device, usually by being in
 the `dialout` group.

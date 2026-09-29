@@ -16,13 +16,17 @@ the real API's `TIMESTAMP_lOCAL` typo), value types and ID numbers must match re
 ## Commands
 
 ```sh
-go build ./...                       # build everything
-go test ./...                        # all tests (no hardware needed)
+make build                           # static, stripped binary for this machine (CGO_ENABLED=0)
+make all                             # p1mon-imitator-linux-amd64 and -arm64
+make test                            # go test ./...
+make vet                             # go vet + gofmt check
 go test ./internal/dsmr -run TestParseDSMR5   # a single test
-go vet ./... && gofmt -l .           # lint
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o p1mon-imitator ./cmd/p1mon-imitator   # Raspberry Pi
 go run ./cmd/p1mon-imitator -device testdata/dsmr5-kaifa.txt -listen :18080 -verbose     # run without a meter
 ```
+
+The Makefile sets `CGO_ENABLED=0`, `-trimpath` and `-ldflags '-s -w'`, and injects the git version
+into `main.version` (shown by `-version`). Keep builds static: check with `file` that the binary
+says "statically linked".
 
 Passing a regular file as `-device` replays its telegrams in a loop (1/s). `testdata/dsmr5-kaifa.txt`
 holds CRC-valid DSMR 5 telegrams. To regenerate such a file, build the body and append `!` plus the
