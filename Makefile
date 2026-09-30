@@ -8,7 +8,9 @@ export CGO_ENABLED := 0
 GOFLAGS := -trimpath
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: all build amd64 arm64 test vet fmt clean
+PREFIX ?= /usr/local
+
+.PHONY: all build amd64 arm64 test vet fmt clean install
 
 all: amd64 arm64
 
@@ -30,6 +32,11 @@ vet:
 
 fmt:
 	gofmt -w .
+
+install: build
+	install -m 0755 $(BINARY) $(PREFIX)/bin/$(BINARY)
+	install -m 0644 systemd/$(BINARY).service /etc/systemd/system/$(BINARY).service
+	systemctl daemon-reload
 
 clean:
 	rm -f $(BINARY) $(BINARY)-linux-amd64 $(BINARY)-linux-arm64

@@ -52,6 +52,8 @@ Data flows one way: `meter` → `dsmr` → `p1mon` → `api`.
   handlers do zero work and zero allocation. `RenderConfiguration` builds the static tariff document.
 - `internal/api` — `net/http` routes only. Query parameters (`json=object`, `limit`, `round`) are
   ignored; responses always look like `json=object&limit=1`.
+- `systemd/p1mon-imitator.service` — unit installed by `make install`; runs as root with a read-only
+  filesystem, documented in `SYSTEMD.md`.
 - `cmd/p1mon-imitator` — flags, wiring, signals, and GC tuning (`SetGCPercent(25)`,
   `SetMemoryLimit`, periodic `FreeOSMemory`).
 

@@ -1,0 +1,24 @@
+[Unit]
+Description=P1 Monitor API imitator for Dutch smart meters
+Documentation=https://github.com/wido/p1mon-imitator
+After=network.target
+
+[Service]
+Type=simple
+# Runs as root. Not recommended, but it avoids group setup for the serial device.
+User=root
+# Optional: put extra flags in P1MON_ARGS, e.g. P1MON_ARGS="-device /dev/ttyUSB1 -listen :8080"
+EnvironmentFile=-/etc/default/p1mon-imitator
+ExecStart=/usr/local/bin/p1mon-imitator $P1MON_ARGS
+Restart=always
+RestartSec=5
+
+# The daemon never writes to disk, so the whole filesystem can be read-only.
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+MemoryMax=64M
+
+[Install]
+WantedBy=multi-user.target

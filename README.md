@@ -52,6 +52,8 @@ That reads `/dev/ttyUSB0` and listens on port 8080 (IPv4 and IPv6). Options:
 The user running it needs read access to the serial device, usually by being in
 the `dialout` group.
 
+To run it as a service at boot, see [SYSTEMD.md](SYSTEMD.md).
+
 Then add the P1 Monitor integration in Home Assistant with the host of this
 machine and port 8080.
 
